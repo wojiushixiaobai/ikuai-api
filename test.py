@@ -40,6 +40,53 @@ class HTTP:
         return res
 
 
+class Wan(object):
+    def __init__(self):
+        self.id = wan_id
+
+    def show(self):
+        url = '/Action/call'
+        data = {
+            "func_name": "wan",
+            "action": "show",
+            "param": {
+                "id": self.id,
+                "TYPE": "support_wisp,total,data"
+            }
+        }
+        res = HTTP.post(url, json=data)
+        res_data = res.json()
+        data = res_data.get("Data").get("data")
+        ip_addr = data[0].get('pppoe_ip_addr')
+        if data and ip_addr:
+            return ip_addr
+
+    def reconnect(self):
+        url = '/Action/call'
+        data = {
+            "func_name": "wan",
+            "action": "link_pppoe_reconnect",
+            "param": {
+                "id": self.id
+            }
+        }
+        res = HTTP.post(url, json=data)
+        res_data = res.json()
+        if res_data and res_data.get('Result') == 30000:
+            print("重播成功: " + res_data.get("ErrMsg"))
+        else:
+            print("重播失败: " + res.text)
+
+    def perform(self):
+        ip_addr = self.show()
+        self.reconnect()
+        time.sleep(5)
+
+        re_ip_addr = self.show()
+        if ip_addr and re_ip_addr:
+            print("ip 地址已更新: ")
+            print(ip_addr + ' ---> ' + re_ip_addr)
+
 class User(object):
     def __init__(self):
         self.name = add_name
@@ -133,13 +180,37 @@ class APICreateUser(object):
         user = User()
         user.perform()
 
+
+class APIPPPoE_Reconnect(object):
+    def __init__(self):
+        self.url = url
+        self.server = None
+        self.cookie = None
+        self.username = username
+        self.password = password
+        self.wan_id = wan_id
+
+    def init_http(self):
+        HTTP.server = self.url
+        HTTP.get_cookie(self.username, self.password)
+
+    def pppoe_reconnect(self):
+        self.init_http()
+        wan = Wan()
+        wan.perform()
+
+
 if __name__ == '__main__':
     url = 'http://192.168.1.1'
     username = "admin"
     password = "admin"
 
-    add_name = "测试用户"
-    add_username = "test"
+    # add_name = "测试用户"
+    # add_username = "test"
 
-    api = APICreateUser()
-    api.create_user()
+    # api = APICreateUser()
+    # api.create_user()
+
+    wan_id = 1  # id1 就是 wan1
+    api = APIPPPoE_Reconnect()
+    api.pppoe_reconnect()
